@@ -8,12 +8,26 @@ authors = [
     { name = "Ethan Fremen", email = "ethan@mindlace.net" }
 ]
 requires-python = ">=3.12"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Code Generators",
+]
 dependencies = [
     "typer>=0.15.0",
     "pyyaml>=6.0",
     "jinja2>=3.1",
     "rich>=13.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/mindlace/copyback"
+Repository = "https://github.com/mindlace/copyback"
+Issues = "https://github.com/mindlace/copyback/issues"
 
 [project.scripts]
 copyback = "copyback.cli:app"
