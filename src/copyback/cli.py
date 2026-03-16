@@ -1,5 +1,6 @@
 """CLI entry point for copyback."""
 
+import subprocess
 from pathlib import Path
 from typing import Annotated, Optional
 
@@ -15,6 +16,47 @@ from .config import load_copier_answers, resolve_template_dir
 
 app = typer.Typer(help="Reverse-sync project changes back to a Copier template.")
 console = Console()
+
+EXCLUDED_FILES = {".copier-answers.yml"}
+
+
+def _expand_paths(files: list[str], project_dir: Path) -> list[str]:
+    """Expand directory entries into individual file paths.
+
+    Uses ``git ls-files`` when inside a git repo, falling back to
+    ``Path.rglob`` otherwise. Always filters out EXCLUDED_FILES.
+    """
+    expanded: list[str] = []
+    for entry in files:
+        p = (project_dir / entry).resolve()
+        if p.is_dir():
+            expanded.extend(_list_files_in_dir(entry, p, project_dir))
+        else:
+            rel = str(p.relative_to(project_dir))
+            if rel not in EXCLUDED_FILES:
+                expanded.append(rel)
+    # deduplicate while preserving order, then sort
+    return sorted(dict.fromkeys(expanded))
+
+
+def _list_files_in_dir(entry: str, abs_dir: Path, project_dir: Path) -> list[str]:
+    """List files in a directory, preferring git ls-files."""
+    try:
+        result = subprocess.run(
+            ["git", "ls-files", "--cached", "--others", "--exclude-standard", entry],
+            cwd=project_dir,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        paths = [line for line in result.stdout.splitlines() if line]
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        paths = [
+            str(f.relative_to(project_dir))
+            for f in abs_dir.rglob("*")
+            if f.is_file()
+        ]
+    return [p for p in paths if Path(p).name not in EXCLUDED_FILES]
 
 
 @app.command()
@@ -148,6 +190,11 @@ def add(
     project_dir = project_dir.resolve()
     answers = load_copier_answers(project_dir)
     tmpl = resolve_template_dir(answers, template_dir)
+
+    files = _expand_paths(files, project_dir)
+    if not files:
+        console.print("[yellow]No files found to add.[/yellow]")
+        return
 
     add_files_to_template(
         files=files,
